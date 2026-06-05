@@ -68,6 +68,9 @@
   text-align: left;
   font-family: inherit;
   transition: background-color 0.2s ease, color 0.2s ease;
+  
+  /* Agrega esta línea para quitar el feo subrayado */
+  text-decoration: none; 
 }
 
 .nav-item:hover {
