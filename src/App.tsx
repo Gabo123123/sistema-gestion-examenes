@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './assets/components/Sidebar/Sidebar';
 import Areas from './assets/components/pages/Areas';
 import BancoPreguntas from './assets/components/pages/BancoPreguntas';
+import GenerarExamen from './assets/components/pages/GenerarExamen';
 import './App.css';
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
             <Route path="/dashboard" element={<h2>Dashboard (En construcción...)</h2>} />
             <Route path="/areas" element={<Areas />} />
             <Route path="/banco" element={<BancoPreguntas />} />
+            <Route path="/generar" element={<GenerarExamen />} />
             
             {/* Aquí iremos agregando el Banco de Preguntas, Historial, etc. */}
             <Route path="/banco" element={<h2>Banco de Preguntas (En construcción...)</h2>} />
