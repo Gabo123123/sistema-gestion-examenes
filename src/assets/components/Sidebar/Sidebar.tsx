@@ -1,7 +1,6 @@
-import { NavLink } from 'react-router-dom';
-import './Sidebar.css';
+﻿import { NavLink } from 'react-router-dom';
+import './Sidebar.css'; // <-- Importa su propio CSS, no el de Areas
 
-// Agregamos la propiedad 'path' a la interfaz
 interface MenuItem {
   id: string;
   path: string;
@@ -10,8 +9,6 @@ interface MenuItem {
 }
 
 export default function Sidebar() {
-  // Ya no necesitamos el useState, React Router controla qué pestaña está activa automáticamente
-
   const menuItems: MenuItem[] = [
     { id: 'dashboard', path: '/dashboard', label: 'Dashboard', icon: 'home' },
     { id: 'areas', path: '/areas', label: 'Gestión de Áreas', icon: 'grid_view' },
@@ -33,7 +30,6 @@ export default function Sidebar() {
 
       <nav className="nav-menu">
         {menuItems.map((item) => (
-          // Usamos NavLink, que nos da la clase 'isActive' mágicamente si la URL coincide
           <NavLink
             key={item.id}
             to={item.path}
