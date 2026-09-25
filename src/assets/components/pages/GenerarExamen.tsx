@@ -1,337 +1,114 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { demoStore, type Question } from '../../../demoStore';
 import './GenerarExamen.css';
 
-// 1. Ampliamos la interfaz para desglosar la disponibilidad por dificultad
-interface AreaData {
-  id: string;
-  name: string;
-  category: string;
-  available: {
-    facil: number;
-    medio: number;
-    dificil: number;
-  };
+function shuffled<T>(items: T[]): T[] {
+  return [...items].sort(() => Math.random() - 0.5);
 }
 
-// Interfaz para el estado de cantidades solicitadas
-interface Quantities {
-  facil: number;
-  medio: number;
-  dificil: number;
+function escapeHtml(value: string) {
+  return value.replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c] || c));
 }
 
 export default function GenerarExamen() {
-  // 2. Base de datos con el desglose real de preguntas
-  const [areas] = useState<AreaData[]>([
-    { id: '1', name: 'Matemáticas IV', category: 'Ingeniería', available: { facil: 100, medio: 100, dificil: 45 } },
-    { id: '2', name: 'Física Cuántica', category: 'Ingeniería', available: { facil: 12, medio: 20, dificil: 10 } },
-    { id: '3', name: 'Anatomía Humana', category: 'Salud', available: { facil: 50, medio: 40, dificil: 30 } },
-    { id: '4', name: 'Biología Celular', category: 'Salud', available: { facil: 30, medio: 30, dificil: 25 } },
-    { id: '5', name: 'Historia Universal', category: 'Humanidades', available: { facil: 80, medio: 70, dificil: 30 } },
-    { id: '6', name: 'Lenguaje y Literatura', category: 'Humanidades', available: { facil: 100, medio: 80, dificil: 30 } },
-  ]);
-
-  const [numVersions, setNumVersions] = useState<number>(1);
+  const processes = demoStore.getProcesses();
+  const questions = demoStore.getQuestions();
+  const [processId, setProcessId] = useState(processes[0]?.id || '');
+  const [area, setArea] = useState('');
+  const [numQuestions, setNumQuestions] = useState(Math.min(10, questions.length || 1));
+  const [versions, setVersions] = useState(1);
   const [randomizeQuestions, setRandomizeQuestions] = useState(true);
   const [randomizeOptions, setRandomizeOptions] = useState(true);
-  const [generatedMessage, setGeneratedMessage] = useState('');
+  const [message, setMessage] = useState('');
 
-  const [selectedFilterCategory, setSelectedFilterCategory] = useState<string>('Todas');
+  const selectedProcess = processes.find((p)=>p.id===processId);
+  const availableQuestions = useMemo(() => questions.filter((q)=>!area || q.area===area), [questions, area]);
+  const areas = Array.from(new Set(questions.map((q)=>q.area)));
 
-  const [selectedCourses, setSelectedCourses] = useState<Record<string, boolean>>({});
-  
-  // 3. El estado ahora guarda un objeto con las 3 dificultades por cada curso
-  const [quantities, setQuantities] = useState<Record<string, Quantities>>({});
-
-  const handleToggleCourse = (id: string, checked: boolean) => {
-    setSelectedCourses((prev) => ({ ...prev, [id]: checked }));
-    
-    // Si activa el curso, inicializamos en 0. Si lo desactiva, reseteamos a 0.
-    setQuantities((prev) => ({
-      ...prev,
-      [id]: { facil: 0, medio: 0, dificil: 0 }
-    }));
-  };
-
-  const handleQuantityChange = (id: string, level: keyof Quantities, value: string) => {
-    const val = parseInt(value, 10);
-    setQuantities((prev) => ({
-      ...prev,
-      [id]: {
-        ...(prev[id] || { facil: 0, medio: 0, dificil: 0 }),
-        [level]: isNaN(val) ? 0 : val
-      }
-    }));
-  };
-
-  let totalSelected = 0;
-  let hasErrors = false;
-
-  // 4. Procesamos los datos validando cada dificultad por separado
-  const processedAreas = areas.map((area) => {
-    const isSelected = selectedCourses[area.id] || false;
-    const req = quantities[area.id] || { facil: 0, medio: 0, dificil: 0 };
-    
-    const subtotal = req.facil + req.medio + req.dificil;
-    if (isSelected) totalSelected += subtotal;
-    
-    // Validamos errores por nivel
-    const errorFacil = isSelected && req.facil > area.available.facil;
-    const errorMedio = isSelected && req.medio > area.available.medio;
-    const errorDificil = isSelected && req.dificil > area.available.dificil;
-    
-    if (errorFacil || errorMedio || errorDificil) hasErrors = true;
-
-    return { 
-      ...area, 
-      isSelected, 
-      req, 
-      subtotal,
-      errors: { facil: errorFacil, medio: errorMedio, dificil: errorDificil } 
-    };
-  });
-
-  const displayedAreas = processedAreas.filter(
-    area => selectedFilterCategory === 'Todas' || area.category === selectedFilterCategory
-  );
-
-  const isGenerateDisabled = hasErrors || totalSelected === 0 || numVersions < 1;
-
-  const handleGenerate = () => {
-    if (isGenerateDisabled) return;
-    const confirmacion = window.confirm(`Vas a generar ${numVersions} versión(es) de un examen con ${totalSelected} preguntas distribuidas por dificultad. ¿Deseas continuar?`);
-    if (confirmacion) {
-      setGeneratedMessage(`Demo generada correctamente: ${numVersions} versión(es), ${totalSelected} preguntas. En una implementación institucional, aquí se producirían los archivos finales para revisión o impresión.`);
+  const generate = () => {
+    if (!selectedProcess) {
+      alert('Primero crea un proceso de examen.');
+      return;
     }
+    if (availableQuestions.length === 0) {
+      alert('No hay preguntas disponibles para esta selección.');
+      return;
+    }
+
+    const amount = Math.max(1, Math.min(numQuestions, availableQuestions.length));
+    const pages: string[] = [];
+
+    for (let v = 1; v <= versions; v++) {
+      let selected = randomizeQuestions ? shuffled(availableQuestions).slice(0, amount) : availableQuestions.slice(0, amount);
+      const content = selected.map((q: Question, index) => {
+        const indexedOptions = q.options.map((o, i)=>({ ...o, originalIndex:i }));
+        const opts = randomizeOptions ? shuffled(indexedOptions) : indexedOptions;
+        return `<div class="question"><div class="q-title"><strong>${index+1}.</strong> ${escapeHtml(q.text)}</div><div class="options">${opts.map((o,i)=>`<div>${String.fromCharCode(65+i)}) ${escapeHtml(o.text)}</div>`).join('')}</div></div>`;
+      }).join('');
+
+      pages.push(`<section class="exam-page"><header><div><h1>${escapeHtml(selectedProcess.name)}</h1><p>${escapeHtml(selectedProcess.course)} · ${escapeHtml(selectedProcess.period)}</p></div><div class="version">VERSIÓN ${String.fromCharCode(64+v)}</div></header><div class="student"><span>Apellidos y nombres: __________________________________________</span><span>Fecha: ${escapeHtml(selectedProcess.date)}</span></div><hr/>${content}</section>`);
+    }
+
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(selectedProcess.name)}</title><style>
+      @page{size:A4;margin:16mm}body{font-family:Arial,sans-serif;color:#111;margin:0}.exam-page{page-break-after:always}.exam-page:last-child{page-break-after:auto}header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}h1{font-size:19px;margin:0 0 5px}header p{margin:0;color:#555;font-size:12px}.version{border:1px solid #111;padding:7px 10px;font-weight:700;font-size:12px}.student{display:flex;justify-content:space-between;gap:20px;font-size:12px;margin:14px 0}.question{margin:15px 0;break-inside:avoid}.q-title{font-size:13px;line-height:1.5}.options{margin:7px 0 0 22px;display:grid;gap:5px;font-size:12px}hr{border:0;border-top:1px solid #aaa}
+    </style></head><body>${pages.join('')}<script>window.onload=()=>window.print();<\/script></body></html>`;
+
+    const win = window.open('', '_blank');
+    if (!win) {
+      alert('El navegador bloqueó la ventana de impresión. Permite ventanas emergentes para esta demo.');
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+
+    const history = demoStore.getHistory();
+    demoStore.saveHistory([{ id:Date.now().toString(), processId:selectedProcess.id, processName:selectedProcess.name, versions, questionCount:amount, createdAt:new Date().toISOString() }, ...history]);
+    setMessage(`Examen preparado con ${amount} preguntas y ${versions} versión(es). En la ventana de impresión selecciona “Guardar como PDF”.`);
   };
 
   return (
     <div className="generar-container">
-      <div className="page-header">
-        <div>
-          <h2 className="page-title">Generación de Exámenes</h2>
-          <p style={{ margin: '6px 0 0', color: '#5f6368', fontSize: '13px' }}>Configura una muestra y valida cómo funcionaría la generación institucional.</p>
-        </div>
-      </div>
+      <div className="page-header"><div><h2 className="page-title">Generación de Exámenes</h2><p style={{margin:'6px 0 0',color:'#5f6368',fontSize:13}}>Genera el examen real de la demo y guárdalo como PDF desde el navegador.</p></div></div>
 
-      {generatedMessage && (
-        <div style={{ marginBottom: '20px', padding: '14px 16px', borderRadius: '10px', border: '1px solid #b7dfc5', background: '#f0faf3', color: '#176b35', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-          <span className="material-icons-outlined" style={{ color: '#188038' }}>check_circle</span>
-          <div>
-            <strong style={{ display: 'block', marginBottom: '3px' }}>Generación demostrativa completada</strong>
-            <span style={{ fontSize: '13px', lineHeight: 1.5 }}>{generatedMessage}</span>
-          </div>
-        </div>
-      )}
+      {message && <div style={{marginBottom:20,padding:'14px 16px',border:'1px solid #b7dfc5',background:'#f0faf3',borderRadius:10,color:'#176b35'}}><strong>Listo.</strong> {message}</div>}
 
       <div className="generator-layout">
-        
         <div className="config-section">
-          
           <div className="card">
-            <h3 className="card-title"><span className="material-icons-outlined">settings</span> Parámetros del Examen</h3>
+            <h3 className="card-title"><span className="material-icons-outlined">assignment</span>Proceso</h3>
+            <div className="form-group"><label>Proceso de examen</label><select className="form-control" value={processId} onChange={(e)=>setProcessId(e.target.value)}><option value="">Seleccione...</option>{processes.map((p)=><option key={p.id} value={p.id}>{p.name} — {p.course}</option>)}</select></div>
+            {processes.length===0 && <p style={{fontSize:13,color:'#b06000'}}>No hay procesos. Crea uno desde “Procesos de Examen”.</p>}
+          </div>
+
+          <div className="card">
+            <h3 className="card-title"><span className="material-icons-outlined">tune</span>Configuración</h3>
             <div className="config-grid">
-              <div className="form-group">
-                <label>Número de Versiones (Ilimitado)</label>
-                <input 
-                  type="number" 
-                  className="form-control" 
-                  min="1" 
-                  value={numVersions}
-                  onChange={(e) => setNumVersions(parseInt(e.target.value) || 1)}
-                />
-              </div>
-              <div className="checkbox-group">
-                <label className="checkbox-label">
-                  <input 
-                    type="checkbox" 
-                    checked={randomizeQuestions}
-                    onChange={(e) => setRandomizeQuestions(e.target.checked)}
-                  /> 
-                  Aleatorizar orden de preguntas
-                </label>
-                <label className="checkbox-label">
-                  <input 
-                    type="checkbox" 
-                    checked={randomizeOptions}
-                    onChange={(e) => setRandomizeOptions(e.target.checked)}
-                  /> 
-                  Aleatorizar alternativas (A, B, C...)
-                </label>
-              </div>
+              <div className="form-group"><label>Área</label><select className="form-control" value={area} onChange={(e)=>setArea(e.target.value)}><option value="">Todas</option>{areas.map((a)=><option key={a}>{a}</option>)}</select></div>
+              <div className="form-group"><label>Cantidad de preguntas</label><input className="form-control" type="number" min="1" max={availableQuestions.length || 1} value={numQuestions} onChange={(e)=>setNumQuestions(Number(e.target.value)||1)} /></div>
+              <div className="form-group"><label>Número de versiones</label><input className="form-control" type="number" min="1" max="5" value={versions} onChange={(e)=>setVersions(Math.max(1,Math.min(5,Number(e.target.value)||1)))} /></div>
+            </div>
+            <div className="checkbox-group">
+              <label className="checkbox-label"><input type="checkbox" checked={randomizeQuestions} onChange={(e)=>setRandomizeQuestions(e.target.checked)} /> Aleatorizar preguntas</label>
+              <label className="checkbox-label"><input type="checkbox" checked={randomizeOptions} onChange={(e)=>setRandomizeOptions(e.target.checked)} /> Aleatorizar alternativas</label>
             </div>
           </div>
 
           <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div>
-                <h3 className="card-title" style={{ marginBottom: '4px' }}>
-                  <span className="material-icons-outlined">format_list_numbered</span> Selección de Preguntas
-                </h3>
-                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>
-                  Marca los cursos y distribuye la cantidad por nivel de dificultad.
-                </p>
-              </div>
-
-              <div style={{ width: '250px' }}>
-                <select 
-                  className="form-control" 
-                  value={selectedFilterCategory} 
-                  onChange={(e) => setSelectedFilterCategory(e.target.value)}
-                >
-                  <option value="Todas">Mostrar todas las Áreas</option>
-                  <option value="Ingeniería">Perfil: Ingeniería</option>
-                  <option value="Salud">Perfil: Salud</option>
-                  <option value="Humanidades">Perfil: Humanidades</option>
-                </select>
-              </div>
-            </div>
-            
-            <table>
-              <thead>
-                <tr>
-                  <th className="col-checkbox">Incluir</th>
-                  <th>Curso / Área</th>
-                  <th style={{ textAlign: 'right' }}>Distribución de Dificultad</th>
-                  <th style={{ textAlign: 'center', width: '80px' }}>Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayedAreas.map((area) => (
-                  <tr key={area.id} style={{ backgroundColor: area.isSelected ? '#f8fbff' : 'transparent' }}>
-                    <td className="col-checkbox">
-                      <input 
-                        type="checkbox" 
-                        className="row-checkbox"
-                        checked={area.isSelected}
-                        onChange={(e) => handleToggleCourse(area.id, e.target.checked)}
-                      />
-                    </td>
-                    <td>
-                      <strong style={{ color: area.isSelected ? 'var(--primary-blue)' : 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
-                        {area.name}
-                      </strong>
-                      <span className="category-badge">{area.category}</span>
-                    </td>
-                    
-                    {/* NUEVO: Bloque de 3 inputs para la distribución */}
-                    <td>
-                      <div className="difficulty-group">
-                        {/* Fácil */}
-                        <div className="diff-item">
-                          <span className="diff-label">Fácil</span>
-                          <input 
-                            type="number" 
-                            className={`input-number-sm ${area.errors.facil ? 'input-error' : ''}`}
-                            value={area.isSelected && area.req.facil ? area.req.facil : ''}
-                            placeholder="0"
-                            min="0"
-                            disabled={!area.isSelected}
-                            onChange={(e) => handleQuantityChange(area.id, 'facil', e.target.value)}
-                          />
-                          <span className={`diff-limit ${area.errors.facil ? 'error' : ''}`}>
-                            Max: {area.available.facil}
-                          </span>
-                        </div>
-                        
-                        {/* Medio */}
-                        <div className="diff-item">
-                          <span className="diff-label">Medio</span>
-                          <input 
-                            type="number" 
-                            className={`input-number-sm ${area.errors.medio ? 'input-error' : ''}`}
-                            value={area.isSelected && area.req.medio ? area.req.medio : ''}
-                            placeholder="0"
-                            min="0"
-                            disabled={!area.isSelected}
-                            onChange={(e) => handleQuantityChange(area.id, 'medio', e.target.value)}
-                          />
-                          <span className={`diff-limit ${area.errors.medio ? 'error' : ''}`}>
-                            Max: {area.available.medio}
-                          </span>
-                        </div>
-                        
-                        {/* Difícil */}
-                        <div className="diff-item">
-                          <span className="diff-label">Difícil</span>
-                          <input 
-                            type="number" 
-                            className={`input-number-sm ${area.errors.dificil ? 'input-error' : ''}`}
-                            value={area.isSelected && area.req.dificil ? area.req.dificil : ''}
-                            placeholder="0"
-                            min="0"
-                            disabled={!area.isSelected}
-                            onChange={(e) => handleQuantityChange(area.id, 'dificil', e.target.value)}
-                          />
-                          <span className={`diff-limit ${area.errors.dificil ? 'error' : ''}`}>
-                            Max: {area.available.dificil}
-                          </span>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td style={{ textAlign: 'center' }}>
-                      <strong style={{ fontSize: '16px', color: area.isSelected && area.subtotal > 0 ? 'var(--text-main)' : 'var(--text-muted)' }}>
-                        {area.isSelected ? area.subtotal : 0}
-                      </strong>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <h3 className="card-title"><span className="material-icons-outlined">quiz</span>Preguntas disponibles</h3>
+            <p style={{fontSize:13,color:'#5f6368'}}>Hay <strong>{availableQuestions.length}</strong> preguntas disponibles para la selección actual.</p>
           </div>
-
         </div>
 
         <div className="summary-section">
           <div className="summary-card">
-            <h3 className="card-title"><span className="material-icons-outlined">receipt_long</span> Resumen del Examen</h3>
-            
-            <div style={{ marginTop: '24px' }}>
-              {processedAreas.map((area) => (
-                area.subtotal > 0 && (
-                  <div className="summary-row" key={area.id} style={{ color: (area.errors.facil || area.errors.medio || area.errors.dificil) ? 'var(--danger)' : 'inherit' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span>{area.name}</span>
-                      <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                        {area.req.facil} F - {area.req.medio} M - {area.req.dificil} D
-                      </span>
-                    </div>
-                    <strong style={{ display: 'flex', alignItems: 'center' }}>{area.subtotal}</strong>
-                  </div>
-                )
-              ))}
-              {totalSelected === 0 && (
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>
-                  Aún no has seleccionado preguntas.
-                </div>
-              )}
-            </div>
-
-            <div className="summary-total">
-              <span>Total de Preguntas</span>
-              <span style={{ color: hasErrors ? 'var(--danger)' : 'var(--text-main)' }}>
-                {totalSelected}
-              </span>
-            </div>
-
-            {hasErrors && (
-              <p style={{ fontSize: '12px', color: 'var(--danger)', marginTop: '12px', textAlign: 'center' }}>
-                Corrige las cantidades en rojo para continuar.
-              </p>
-            )}
-
-            <button 
-              className={`btn-primary ${isGenerateDisabled ? 'btn-disabled' : ''}`} 
-              disabled={isGenerateDisabled}
-              onClick={handleGenerate}
-            >
-              <span className="material-icons-outlined">note_add</span>
-              Generar Examen
-            </button>
+            <h3 className="card-title"><span className="material-icons-outlined">description</span>Resumen</h3>
+            <div className="summary-row"><span>Proceso</span><strong>{selectedProcess?.name || 'Sin seleccionar'}</strong></div>
+            <div className="summary-row"><span>Preguntas</span><strong>{Math.min(numQuestions, availableQuestions.length)}</strong></div>
+            <div className="summary-row"><span>Versiones</span><strong>{versions}</strong></div>
+            <div className="summary-total"><span>Salida</span><span>PDF</span></div>
+            <button className="btn-primary" disabled={!selectedProcess || availableQuestions.length===0} onClick={generate}><span className="material-icons-outlined">picture_as_pdf</span>Generar / Guardar PDF</button>
           </div>
         </div>
-
       </div>
     </div>
   );
