@@ -34,6 +34,7 @@ export default function GenerarExamen() {
   const [numVersions, setNumVersions] = useState<number>(1);
   const [randomizeQuestions, setRandomizeQuestions] = useState(true);
   const [randomizeOptions, setRandomizeOptions] = useState(true);
+  const [generatedMessage, setGeneratedMessage] = useState('');
 
   const [selectedFilterCategory, setSelectedFilterCategory] = useState<string>('Todas');
 
@@ -100,15 +101,28 @@ export default function GenerarExamen() {
     if (isGenerateDisabled) return;
     const confirmacion = window.confirm(`Vas a generar ${numVersions} versión(es) de un examen con ${totalSelected} preguntas distribuidas por dificultad. ¿Deseas continuar?`);
     if (confirmacion) {
-      alert('Simulando generación de examen...');
+      setGeneratedMessage(`Demo generada correctamente: ${numVersions} versión(es), ${totalSelected} preguntas. En una implementación institucional, aquí se producirían los archivos finales para revisión o impresión.`);
     }
   };
 
   return (
     <div className="generar-container">
       <div className="page-header">
-        <h2 className="page-title">Generación de Exámenes</h2>
+        <div>
+          <h2 className="page-title">Generación de Exámenes</h2>
+          <p style={{ margin: '6px 0 0', color: '#5f6368', fontSize: '13px' }}>Configura una muestra y valida cómo funcionaría la generación institucional.</p>
+        </div>
       </div>
+
+      {generatedMessage && (
+        <div style={{ marginBottom: '20px', padding: '14px 16px', borderRadius: '10px', border: '1px solid #b7dfc5', background: '#f0faf3', color: '#176b35', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+          <span className="material-icons-outlined" style={{ color: '#188038' }}>check_circle</span>
+          <div>
+            <strong style={{ display: 'block', marginBottom: '3px' }}>Generación demostrativa completada</strong>
+            <span style={{ fontSize: '13px', lineHeight: 1.5 }}>{generatedMessage}</span>
+          </div>
+        </div>
+      )}
 
       <div className="generator-layout">
         
