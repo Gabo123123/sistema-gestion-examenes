@@ -48,11 +48,11 @@ export default function Dashboard() {
           </div>
 
           <div className="flow-list">
-            <Link to="/areas" className="flow-item">
+            <Link to="/procesos" className="flow-item">
               <span className="flow-number">1</span>
               <div>
-                <strong>Revisar las áreas</strong>
-                <p>Consulta, crea o edita las áreas académicas del banco.</p>
+                <strong>Crear el proceso de examen</strong>
+                <p>Primero crea un proceso y luego organiza las áreas académicas del banco.</p>
               </div>
               <span className="material-icons-outlined">chevron_right</span>
             </Link>
@@ -60,7 +60,7 @@ export default function Dashboard() {
             <Link to="/banco" className="flow-item">
               <span className="flow-number">2</span>
               <div>
-                <strong>Explorar el banco de preguntas</strong>
+                <strong>Crear o revisar preguntas</strong>
                 <p>Visualiza preguntas, alternativas, dificultad y respuesta correcta.</p>
               </div>
               <span className="material-icons-outlined">chevron_right</span>
@@ -70,7 +70,7 @@ export default function Dashboard() {
               <span className="flow-number">3</span>
               <div>
                 <strong>Generar un examen</strong>
-                <p>Selecciona cursos, dificultad, cantidad y número de versiones.</p>
+                <p>Selecciona el proceso, preguntas y versiones; luego guarda el resultado como PDF.</p>
               </div>
               <span className="material-icons-outlined">chevron_right</span>
             </Link>
